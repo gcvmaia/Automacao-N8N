@@ -1,0 +1,1392 @@
+[
+  {
+    "name": "NFS-e automática por pagamento (Asaas sandbox)",
+    "description": "Recebe avisos do Asaas, agenda a NFS-e quando o pagamento é recebido, envia o PDF ao cliente e registra tudo numa tabela de controle.",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "asaas-nfse",
+          "authentication": "headerAuth",
+          "options": {}
+        },
+        "id": "bb823c16-53a8-4bc3-a064-98d25f522649",
+        "name": "Receber aviso do Asaas",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          240,
+          400
+        ],
+        "webhookId": "79743cbe-073b-4f86-829c-b28aa651eeee",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "NLYGNkpIfUF47Uul",
+            "name": "Asaas Webhook Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "event",
+                "value": "={{ $json.body?.event ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a2",
+                "name": "paymentId",
+                "value": "={{ $json.body?.payment?.id ?? $json.body?.invoice?.payment ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a3",
+                "name": "customerId",
+                "value": "={{ $json.body?.payment?.customer ?? $json.body?.invoice?.customer ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a4",
+                "name": "valor",
+                "value": "={{ $json.body?.payment?.value ?? $json.body?.invoice?.value ?? 0 }}",
+                "type": "number"
+              },
+              {
+                "id": "a5",
+                "name": "descricao",
+                "value": "={{ $json.body?.payment?.description ?? $json.body?.invoice?.serviceDescription ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a6",
+                "name": "invoiceId",
+                "value": "={{ $json.body?.invoice?.id ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a7",
+                "name": "invoiceNumber",
+                "value": "={{ $json.body?.invoice?.number ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a8",
+                "name": "pdfUrl",
+                "value": "={{ $json.body?.invoice?.pdfUrl ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a9",
+                "name": "detalhe",
+                "value": "={{ $json.body?.invoice?.statusDescription ?? $json.body?.invoice?.status ?? \"\" }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "84d5d38e-e9c0-4ac1-bb56-26ce8edca9a6",
+        "name": "Normalizar aviso",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          528,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.event }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "PAYMENT_RECEIVED"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Pagamento recebido"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.event }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "INVOICE_AUTHORIZED"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Nota emitida"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.event }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "INVOICE_ERROR"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Erro na nota"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "Ignorar"
+          }
+        },
+        "id": "65c01f95-3364-4ed8-a504-5cd148f585da",
+        "name": "Rotear por tipo de evento",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          800,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "c0a",
+                "name": "paymentId",
+                "type": "string",
+                "value": "={{ $(\"Dados do pagamento\").first().json.paymentId }}"
+              },
+              {
+                "id": "c0b",
+                "name": "customerId",
+                "type": "string",
+                "value": "={{ $(\"Dados do pagamento\").first().json.customerId }}"
+              },
+              {
+                "id": "c0c",
+                "name": "valor",
+                "type": "number",
+                "value": "={{ $(\"Dados do pagamento\").first().json.valor }}"
+              },
+              {
+                "id": "c0d",
+                "name": "descricao",
+                "type": "string",
+                "value": "={{ $(\"Dados do pagamento\").first().json.descricao }}"
+              },
+              {
+                "id": "c1",
+                "name": "municipalServiceId",
+                "type": "string",
+                "value": "373224"
+              },
+              {
+                "id": "c2",
+                "name": "municipalServiceName",
+                "type": "string",
+                "value": "Análise e desenvolvimento de sistemas"
+              }
+            ]
+          },
+          "includeOtherFields": false,
+          "options": {}
+        },
+        "id": "1a641d91-beee-40c9-ae37-a2938da16548",
+        "name": "Configuração fiscal (editar)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          1680,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api-sandbox.asaas.com/v3/invoices",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ { \"payment\": $json.paymentId, \"serviceDescription\": ($json.descricao || \"Prestação de serviços\"), \"value\": $json.valor, \"effectiveDate\": $today.toFormat(\"yyyy-MM-dd\"), \"externalReference\": $json.paymentId, \"municipalServiceId\": $json.municipalServiceId, \"municipalServiceName\": $json.municipalServiceName, \"taxes\": { \"retainIss\": false, \"iss\": 0, \"pis\": 0, \"cofins\": 0, \"csll\": 0, \"inss\": 0, \"ir\": 0 } } }}",
+          "options": {}
+        },
+        "id": "50c6279a-8701-45cf-9d9f-16a103488a97",
+        "name": "Agendar nota no Asaas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1936,
+          0
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5",
+            "cachedResultName": "notas_fiscais_controle"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "payment_id": "={{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}",
+              "customer_id": "={{ $(\"Configuração fiscal (editar)\").first().json.customerId }}",
+              "invoice_id": "={{ $json.id }}",
+              "status": "AGENDADA",
+              "valor": "={{ $(\"Configuração fiscal (editar)\").first().json.valor }}",
+              "detalhe": ""
+            },
+            "schema": [
+              {
+                "id": "payment_id",
+                "displayName": "payment_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "customer_id",
+                "displayName": "customer_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "invoice_id",
+                "displayName": "invoice_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "valor",
+                "displayName": "valor",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "detalhe",
+                "displayName": "detalhe",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {},
+          "operation": "upsert",
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "payment_id",
+                "keyValue": "={{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}"
+              }
+            ]
+          }
+        },
+        "id": "47dd0dc0-ad8c-4b88-8611-a70e72a9680d",
+        "name": "Registrar nota agendada",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          2224,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5",
+            "cachedResultName": "notas_fiscais_controle"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "payment_id": "={{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}",
+              "customer_id": "={{ $(\"Configuração fiscal (editar)\").first().json.customerId }}",
+              "status": "ERRO_AO_AGENDAR",
+              "valor": "={{ $(\"Configuração fiscal (editar)\").first().json.valor }}",
+              "detalhe": "={{ $json.error?.message ?? \"falha ao chamar a API do Asaas (veja a execução no n8n)\" }}"
+            },
+            "schema": [
+              {
+                "id": "payment_id",
+                "displayName": "payment_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "customer_id",
+                "displayName": "customer_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "valor",
+                "displayName": "valor",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "detalhe",
+                "displayName": "detalhe",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {},
+          "operation": "upsert",
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "payment_id",
+                "keyValue": "={{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}"
+              }
+            ]
+          }
+        },
+        "id": "36bcb739-b0f7-446f-93ed-2b00ea025df0",
+        "name": "Registrar erro ao agendar",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          2224,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "fromEmail": "seu-email@exemplo.com",
+          "toEmail": "seu-email@exemplo.com",
+          "subject": "=Erro ao agendar nota do pagamento {{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}",
+          "emailFormat": "text",
+          "text": "=Não foi possível agendar a nota fiscal no Asaas.\nPagamento: {{ $(\"Configuração fiscal (editar)\").first().json.paymentId }}\nMotivo: veja a coluna \"detalhe\" na tabela notas_fiscais_controle ou a execução no n8n.",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "id": "90d31909-7dde-46e8-8177-2ebc43ef3b1e",
+        "name": "Avisar erro ao agendar",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          2480,
+          208
+        ],
+        "webhookId": "f005ecfa-5290-449d-a59d-5340241a8b5c",
+        "credentials": {
+          "smtp": {
+            "id": "4qLK9Da3uFDQU5E6",
+            "name": "Gmail SMTP"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://api-sandbox.asaas.com/v3/customers/{{ $json.customerId }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ba8f8cbf-a94f-48d0-b5e1-b6af5ee3d36c",
+        "name": "Buscar dados do cliente",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1360,
+          704
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "={{ $(\"Normalizar aviso\").first().json.pdfUrl }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file"
+              }
+            }
+          }
+        },
+        "id": "4e978d44-7ee8-48d7-a712-684631faba52",
+        "name": "Baixar PDF da nota",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1616,
+          704
+        ]
+      },
+      {
+        "parameters": {
+          "fromEmail": "seu-email@exemplo.com",
+          "toEmail": "={{ $(\"Buscar dados do cliente\").first().json.email }}",
+          "subject": "=Sua nota fiscal nº {{ $(\"Normalizar aviso\").first().json.invoiceNumber }}",
+          "html": "=<p>Olá, {{ $(\"Buscar dados do cliente\").first().json.name }}!</p><p>Obrigado pelo pagamento. Segue em anexo a nota fiscal nº {{ $(\"Normalizar aviso\").first().json.invoiceNumber }}, no valor de R$ {{ $(\"Normalizar aviso\").first().json.valor }}.</p><p>Qualquer dúvida, é só responder este e-mail.</p>",
+          "options": {
+            "appendAttribution": false,
+            "fileAttachments": "data"
+          }
+        },
+        "id": "5699cfb8-d3a6-47dc-9bc4-b1a081dc90fc",
+        "name": "Enviar nota por e-mail ao cliente",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          1872,
+          704
+        ],
+        "webhookId": "4f28300f-01b2-4f94-bb12-29a8e5db12cf",
+        "credentials": {
+          "smtp": {
+            "id": "4qLK9Da3uFDQU5E6",
+            "name": "Gmail SMTP"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5",
+            "cachedResultName": "notas_fiscais_controle"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "payment_id",
+                "keyValue": "={{ $(\"Normalizar aviso\").first().json.paymentId }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "={{ $json.accepted ? \"EMITIDA\" : \"EMITIDA_SEM_EMAIL\" }}",
+              "invoice_id": "={{ $(\"Normalizar aviso\").first().json.invoiceId }}",
+              "invoice_number": "={{ $(\"Normalizar aviso\").first().json.invoiceNumber }}",
+              "detalhe": "={{ $json.accepted ? \"Nota emitida e e-mail enviado\" : \"Nota emitida, mas o e-mail não foi enviado\" }}"
+            },
+            "schema": [
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "invoice_id",
+                "displayName": "invoice_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "invoice_number",
+                "displayName": "invoice_number",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "detalhe",
+                "displayName": "detalhe",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "8c195f52-c659-46a7-b353-f617759eba35",
+        "name": "Atualizar tabela: emitida",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          2128,
+          704
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5",
+            "cachedResultName": "notas_fiscais_controle"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "payment_id",
+                "keyValue": "={{ $json.paymentId }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "status": "ERRO_EMISSAO",
+              "detalhe": "={{ $json.detalhe }}"
+            },
+            "schema": [
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "detalhe",
+                "displayName": "detalhe",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "6fd235e3-db66-4876-bfeb-7feaef499e61",
+        "name": "Atualizar tabela: erro",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1104,
+          1152
+        ]
+      },
+      {
+        "parameters": {
+          "fromEmail": "seu-email@exemplo.com",
+          "toEmail": "seu-email@exemplo.com",
+          "subject": "=A nota do pagamento {{ $(\"Normalizar aviso\").first().json.paymentId }} deu erro",
+          "emailFormat": "text",
+          "text": "=O Asaas informou erro na emissão da nota fiscal.\nPagamento: {{ $(\"Normalizar aviso\").first().json.paymentId }}\nDetalhe: {{ $(\"Normalizar aviso\").first().json.detalhe }}",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "id": "2c6c0e90-0e55-4d5d-a7f7-5908171030cc",
+        "name": "Avisar erro na emissão",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          1392,
+          1152
+        ],
+        "webhookId": "295b0f2d-a1ea-43c2-8c02-c85ec54ffaec",
+        "credentials": {
+          "smtp": {
+            "id": "4qLK9Da3uFDQU5E6",
+            "name": "Gmail SMTP"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## 1) Entrada: o Asaas avisa o n8n\n**Receber aviso do Asaas** — URL que o Asaas chama (webhook). Só aceita avisos com o token certo no cabeçalho `asaas-access-token`.\n\n**Normalizar aviso** — pega só os campos úteis do aviso (evento, ID do pagamento, cliente, valor, PDF) e deixa tudo num formato padrão.\n\n**Rotear por tipo de evento** — decide o caminho: pagamento recebido (parte 2), nota emitida (parte 3) ou erro na nota (parte 4). Outros eventos são ignorados.\n\n**Antes de ativar:** edite o nó \"Configuração fiscal\", confirme o e-mail remetente nos nós de e-mail e cadastre o webhook no Asaas com a URL de produção.",
+          "height": 520,
+          "width": 820,
+          "color": 6
+        },
+        "id": "cf437af4-8c7c-4eb0-b440-7e7239b6499d",
+        "name": "Sticky Note c02ee16a",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          208,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2) Pagamento recebido: pedir a nota\n**Pagamento ainda não processado?** — consulta a tabela de controle. Se o pagamento já foi agendado ou emitido, o fluxo para (evita nota duplicada quando o Asaas reenvia o aviso). Pagamentos com ERRO_AO_AGENDAR passam, para poderem ser reprocessados depois de corrigir o problema.\n\n**Configuração fiscal (editar)** — guarda o ID e o nome do serviço municipal (ID 373224, \"Análise e desenvolvimento de sistemas\"). Troque se o seu serviço for outro.\n\n**Agendar nota no Asaas** — pede a NFS-e ligada a esse pagamento. Se der erro, segue pela saída de erro.\n\n**Registrar nota agendada** — grava (ou atualiza) pagamento, ID da nota e status AGENDADA.\n\n**Pedir emissão imediata** — manda o Asaas emitir na hora, sem esperar a fila (a nota fica pronta em ~20 s).\n\n**Registrar erro ao agendar / Avisar erro ao agendar** — grava o erro na tabela e avisa você por e-mail.",
+          "height": 480,
+          "width": 1300,
+          "color": 4
+        },
+        "id": "eca1894e-529a-464d-943d-96110f2f7d51",
+        "name": "Sticky Note 75a0e4d5",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1040,
+          -560
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3) Nota emitida: entregar ao cliente\n**Nota ainda não enviada?** — se a tabela já marca o pagamento como EMITIDA, para aqui (a Asaas às vezes repete o aviso; sem isso o cliente receberia a nota duas vezes).\n\n**Buscar dados do cliente** — consulta nome e e-mail na Asaas só na hora de enviar. Os dados pessoais não ficam na tabela e não passam por nenhuma IA.\n\n**Baixar PDF da nota** — baixa o PDF pelo link que veio no aviso.\n\n**Enviar nota por e-mail ao cliente** — envia o PDF em anexo. Se falhar, o fluxo continua.\n\n**Atualizar tabela: emitida** — marca EMITIDA (ou EMITIDA_SEM_EMAIL se o envio falhou) e guarda o número da nota.\n\n**E-mail ao cliente falhou? / Avisar e-mail não enviado** — se o envio falhou, manda um e-mail para você com o link do PDF para enviar manualmente.",
+          "height": 330,
+          "width": 1820,
+          "color": 5
+        },
+        "id": "dbd4fb55-bcea-46c6-9573-3700014aaf84",
+        "name": "Sticky Note b06b9acb",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1072,
+          384
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 4) Erro na emissão: avisar você\n**Atualizar tabela: erro** — muda o status para ERRO_EMISSAO e guarda o motivo informado pelo Asaas.\n\n**Avisar erro na emissão** — manda um e-mail para você com o pagamento e o motivo.",
+          "height": 210,
+          "width": 700,
+          "color": 3
+        },
+        "id": "30a86ae6-1445-4cfd-bc46-c7625e759199",
+        "name": "Sticky Note 71f085f1",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1072,
+          880
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api-sandbox.asaas.com/v3/invoices/{{ $json.invoice_id }}/authorize",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        },
+        "id": "09ef35ef-66a7-4302-b3d6-6b6e6d637266",
+        "name": "Pedir emissão imediata",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          2480,
+          0
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        },
+        "notes": "Manda a Asaas emitir a nota agora, sem esperar a fila. Se falhar, não quebra o fluxo: a nota continua agendada e a Asaas emite sozinha."
+      },
+      {
+        "id": "08e9eb1f-664a-4729-ac57-751731e35d97",
+        "name": "Nota ainda não enviada?",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1104,
+          704
+        ],
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "cachedResultName": "notas_fiscais_controle",
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "payment_id",
+                "keyValue": "={{ $json.paymentId }}"
+              },
+              {
+                "keyName": "status",
+                "keyValue": "EMITIDA"
+              }
+            ]
+          },
+          "matchType": "allConditions",
+          "operation": "rowNotExists"
+        },
+        "notes": "Se a tabela já marca esse pagamento como EMITIDA, o fluxo para. Evita mandar a mesma nota duas vezes quando a Asaas repete o aviso."
+      },
+      {
+        "id": "203ff87e-6253-45ad-8c89-584862a1bbe1",
+        "name": "E-mail ao cliente falhou?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2384,
+          704
+        ],
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "leftValue": "={{ $json.status }}",
+                "operator": {
+                  "operation": "equals",
+                  "type": "string"
+                },
+                "rightValue": "EMITIDA_SEM_EMAIL"
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            }
+          }
+        }
+      },
+      {
+        "id": "b41c93c9-f7ca-45f5-a97c-5c6e1107a270",
+        "name": "Avisar e-mail não enviado",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          2640,
+          704
+        ],
+        "parameters": {
+          "emailFormat": "text",
+          "fromEmail": "seu-email@exemplo.com",
+          "options": {
+            "appendAttribution": false
+          },
+          "subject": "=Nota {{ $(\"Normalizar aviso\").first().json.invoiceNumber }} emitida, mas o e-mail ao cliente falhou",
+          "text": "=A nota fiscal foi emitida, mas não consegui enviá-la ao cliente por e-mail.\nPagamento: {{ $(\"Normalizar aviso\").first().json.paymentId }}\nNota: {{ $(\"Normalizar aviso\").first().json.invoiceNumber }}\nPDF: {{ $(\"Normalizar aviso\").first().json.pdfUrl }}\n\nConfira o e-mail do cliente no Asaas e envie o PDF manualmente.",
+          "toEmail": "seu-email@exemplo.com"
+        },
+        "credentials": {
+          "smtp": {
+            "id": "4qLK9Da3uFDQU5E6",
+            "name": "Gmail SMTP"
+          }
+        },
+        "webhookId": "1a3e5aed-95b2-4ebf-b91c-a947dab86cff"
+      },
+      {
+        "id": "923e0252-684a-483c-bb9d-3988d0a93c24",
+        "name": "Receber pedido de reprocessamento",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          240,
+          -300
+        ],
+        "parameters": {
+          "authentication": "headerAuth",
+          "httpMethod": "POST",
+          "options": {},
+          "path": "reprocessar-nfse"
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "NLYGNkpIfUF47Uul",
+            "name": "Asaas Webhook Token"
+          }
+        },
+        "webhookId": "253f8ac4-f2af-4bc5-941b-67be08dfafea"
+      },
+      {
+        "id": "7e09da32-5b37-4bdd-a1ac-a6f1d97a3e92",
+        "name": "Buscar pagamento no Asaas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          528,
+          -300
+        ],
+        "parameters": {
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "options": {},
+          "sendHeaders": true,
+          "url": "=https://api-sandbox.asaas.com/v3/payments/{{ $json.body.paymentId }}"
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        }
+      },
+      {
+        "id": "77a5f750-1f9d-494b-a1a8-45f6756db983",
+        "name": "Montar dados do pagamento",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          800,
+          -300
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "paymentId",
+                "type": "string",
+                "value": "={{ $json.id }}"
+              },
+              {
+                "id": "r2",
+                "name": "customerId",
+                "type": "string",
+                "value": "={{ $json.customer }}"
+              },
+              {
+                "id": "r3",
+                "name": "valor",
+                "type": "number",
+                "value": "={{ $json.value }}"
+              },
+              {
+                "id": "r4",
+                "name": "descricao",
+                "type": "string",
+                "value": "={{ $json.description ?? \"\" }}"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "d99210f9-87bb-4926-884f-e28caccad335",
+        "name": "Sticky Reprocessar",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          208,
+          -420
+        ],
+        "parameters": {
+          "color": 7,
+          "content": "## Reprocessar um pagamento\nSe uma nota não foi agendada (por exemplo, cliente sem endereço) e você já corrigiu o cadastro no Asaas, chame `POST /webhook/reprocessar-nfse` com o mesmo token e o corpo `{\"paymentId\": \"pay_...\"}`.\n\n**Buscar pagamento no Asaas** — lê cliente, valor e descrição do pagamento.\n**Montar dados do pagamento** — deixa no mesmo formato do aviso normal e segue para a checagem. Só pagamentos que ainda não foram agendados com sucesso passam.",
+          "height": 300,
+          "width": 820
+        }
+      },
+      {
+        "id": "714d36fa-0336-4218-b739-964b6c1570b3",
+        "name": "Dados do pagamento",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          1104,
+          0
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "d1",
+                "name": "paymentId",
+                "type": "string",
+                "value": "={{ $json.paymentId }}"
+              },
+              {
+                "id": "d2",
+                "name": "customerId",
+                "type": "string",
+                "value": "={{ $json.customerId }}"
+              },
+              {
+                "id": "d3",
+                "name": "valor",
+                "type": "number",
+                "value": "={{ $json.valor }}"
+              },
+              {
+                "id": "d4",
+                "name": "descricao",
+                "type": "string",
+                "value": "={{ $json.descricao }}"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "1567ae4f-d404-4b82-9e0b-d27b13330cc5",
+        "name": "Buscar registro do pagamento",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1248,
+          0
+        ],
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "cachedResultName": "notas_fiscais_controle",
+            "mode": "list",
+            "value": "56ujcQMNFF70ZmU5"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "payment_id",
+                "keyValue": "={{ $json.paymentId }}"
+              }
+            ]
+          },
+          "matchType": "allConditions",
+          "operation": "get",
+          "resource": "row",
+          "returnAll": true
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "d67962ae-4cea-4588-9092-646ff832710d",
+        "name": "Já agendado ou emitido?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1392,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "j1",
+                "leftValue": "={{ $input.all().some(i => [\"AGENDADA\", \"EMITIDA\", \"EMITIDA_SEM_EMAIL\", \"ERRO_EMISSAO\"].includes(i.json.status)) }}",
+                "operator": {
+                  "operation": "true",
+                  "singleValue": true,
+                  "type": "boolean"
+                },
+                "rightValue": ""
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose"
+            }
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Receber aviso do Asaas": {
+        "main": [
+          [
+            {
+              "node": "Normalizar aviso",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalizar aviso": {
+        "main": [
+          [
+            {
+              "node": "Rotear por tipo de evento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Rotear por tipo de evento": {
+        "main": [
+          [
+            {
+              "node": "Dados do pagamento",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Nota ainda não enviada?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Atualizar tabela: erro",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Configuração fiscal (editar)": {
+        "main": [
+          [
+            {
+              "node": "Agendar nota no Asaas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agendar nota no Asaas": {
+        "main": [
+          [
+            {
+              "node": "Registrar nota agendada",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Registrar erro ao agendar",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Registrar erro ao agendar": {
+        "main": [
+          [
+            {
+              "node": "Avisar erro ao agendar",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar dados do cliente": {
+        "main": [
+          [
+            {
+              "node": "Baixar PDF da nota",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Baixar PDF da nota": {
+        "main": [
+          [
+            {
+              "node": "Enviar nota por e-mail ao cliente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar nota por e-mail ao cliente": {
+        "main": [
+          [
+            {
+              "node": "Atualizar tabela: emitida",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Atualizar tabela: erro": {
+        "main": [
+          [
+            {
+              "node": "Avisar erro na emissão",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Registrar nota agendada": {
+        "main": [
+          [
+            {
+              "node": "Pedir emissão imediata",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Nota ainda não enviada?": {
+        "main": [
+          [
+            {
+              "node": "Buscar dados do cliente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Atualizar tabela: emitida": {
+        "main": [
+          [
+            {
+              "node": "E-mail ao cliente falhou?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "E-mail ao cliente falhou?": {
+        "main": [
+          [
+            {
+              "node": "Avisar e-mail não enviado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Receber pedido de reprocessamento": {
+        "main": [
+          [
+            {
+              "node": "Buscar pagamento no Asaas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar pagamento no Asaas": {
+        "main": [
+          [
+            {
+              "node": "Montar dados do pagamento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar dados do pagamento": {
+        "main": [
+          [
+            {
+              "node": "Dados do pagamento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Dados do pagamento": {
+        "main": [
+          [
+            {
+              "node": "Buscar registro do pagamento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar registro do pagamento": {
+        "main": [
+          [
+            {
+              "node": "Já agendado ou emitido?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Já agendado ou emitido?": {
+        "main": [
+          null,
+          [
+            {
+              "node": "Configuração fiscal (editar)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "binaryMode": "separate"
+    },
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    }
+  }
+]

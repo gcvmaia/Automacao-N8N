@@ -1,0 +1,227 @@
+[
+  {
+    "name": "Manter endereço do webhook atualizado (túnel)",
+    "description": "A cada 2 minutos, pergunta ao túnel da Cloudflare qual é o endereço atual e, se mudou, atualiza o webhook cadastrado na Asaas.",
+    "nodes": [
+      {
+        "id": "1337aa94-8503-4709-93d5-b1bbe7a0d3de",
+        "name": "A cada 2 minutos",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "4d03d2c4-b108-4843-ac2d-9abbf978772c",
+        "name": "Perguntar endereço ao túnel",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          224,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "http://cf-tunnel:20241/quicktunnel",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 5000
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "6dea3eea-dc92-44e8-b16c-337980c4dd3a",
+        "name": "Ver endereço cadastrado na Asaas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          448,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://api-sandbox.asaas.com/v3/webhooks/1e4997b7-9cbe-4077-92c9-1a2566ec84a7",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        }
+      },
+      {
+        "id": "3a62b032-2cc8-493e-9a08-88b42b25b919",
+        "name": "Endereço mudou?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ $(\"Perguntar endereço ao túnel\").first().json.hostname ?? \"\" }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                },
+                "rightValue": ""
+              },
+              {
+                "leftValue": "={{ $json.url }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEquals"
+                },
+                "rightValue": "={{ \"https://\" + $(\"Perguntar endereço ao túnel\").first().json.hostname + \"/webhook/asaas-nfse\" }}"
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "b251e7a0-6456-48a2-bea1-b214eec19da4",
+        "name": "Atualizar endereço na Asaas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          896,
+          0
+        ],
+        "parameters": {
+          "method": "PUT",
+          "url": "https://api-sandbox.asaas.com/v3/webhooks/1e4997b7-9cbe-4077-92c9-1a2566ec84a7",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "User-Agent",
+                "value": "n8n-nfse-bootcamp/1.0"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ { \"name\": \"n8n NFS-e\", \"url\": \"https://\" + $(\"Perguntar endereço ao túnel\").first().json.hostname + \"/webhook/asaas-nfse\", \"email\": \"seu-email@exemplo.com\", \"enabled\": true, \"interrupted\": false, \"apiVersion\": 3, \"sendType\": \"SEQUENTIALLY\", \"events\": [\"PAYMENT_RECEIVED\", \"INVOICE_AUTHORIZED\", \"INVOICE_ERROR\"] } }}",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Aoc2I0Gxb5W5WMek",
+            "name": "Asaas Sandbox"
+          }
+        }
+      },
+      {
+        "id": "3e513094-08cb-4b9b-87bb-5190e9e6ef0e",
+        "name": "Nota: como funciona",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -40,
+          -380
+        ],
+        "parameters": {
+          "color": 7,
+          "content": "## Manter o endereço do webhook atualizado\nO túnel rápido da Cloudflare troca de endereço sempre que reinicia.\n\n**A cada 2 minutos** este fluxo:\n1. **Pergunta ao túnel** qual é o endereço atual (ele responde dentro da rede do Docker, em `cf-tunnel:20241`).\n2. **Vê qual endereço a Asaas tem cadastrado** no webhook.\n3. **Se forem diferentes**, atualiza a Asaas com o endereço novo e reativa a fila de avisos.\n\nSe o túnel estiver fora do ar, não faz nada. Quem reinicia o túnel quando ele cai é o vigia no Mac: `~/.vigia-tunel/vigia-tunel.sh` (roda a cada 2 minutos pelo launchd; registro em `~/.vigia-tunel/vigia.log`).",
+          "height": 340,
+          "width": 1100
+        }
+      }
+    ],
+    "connections": {
+      "A cada 2 minutos": {
+        "main": [
+          [
+            {
+              "node": "Perguntar endereço ao túnel",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Perguntar endereço ao túnel": {
+        "main": [
+          [
+            {
+              "node": "Ver endereço cadastrado na Asaas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ver endereço cadastrado na Asaas": {
+        "main": [
+          [
+            {
+              "node": "Endereço mudou?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Endereço mudou?": {
+        "main": [
+          [
+            {
+              "node": "Atualizar endereço na Asaas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true
+    },
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    }
+  }
+]
